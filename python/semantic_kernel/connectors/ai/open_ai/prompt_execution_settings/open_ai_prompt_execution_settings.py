@@ -124,9 +124,10 @@ class OpenAIChatPromptExecutionSettings(OpenAIPromptExecutionSettings):
             return values
 
         if isinstance(response_format, dict):
-            if response_format.get("type") == "json_object":
+            response_format_type = response_format.get("type")
+            if response_format_type in ("text", "json_object"):
                 return values
-            if response_format.get("type") == "json_schema":
+            if response_format_type == "json_schema":
                 json_schema = response_format.get("json_schema")
                 if isinstance(json_schema, dict):
                     values["structured_json_response"] = True
@@ -134,6 +135,10 @@ class OpenAIChatPromptExecutionSettings(OpenAIPromptExecutionSettings):
                 raise ServiceInvalidExecutionSettingsError(
                     "If response_format has type 'json_schema', 'json_schema' must be a valid dictionary."
                 )
+            raise ServiceInvalidExecutionSettingsError(
+                f"Encountered unexpected response_format type: {response_format_type}. "
+                "Allowed types are `text`, `json_object` and `json_schema`."
+            )
         if isinstance(response_format, type):
             if issubclass(response_format, BaseModel):
                 values["structured_json_response"] = True

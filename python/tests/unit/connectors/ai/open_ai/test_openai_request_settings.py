@@ -382,3 +382,51 @@ def test_openai_chat_prompt_execution_settings_with_invalid_structured_output():
     settings = OpenAIChatPromptExecutionSettings()
     with pytest.raises(ServiceInvalidExecutionSettingsError):
         settings.response_format = "invalid"
+
+
+def _settings_from_constructor(response_format):
+    return OpenAIChatPromptExecutionSettings(response_format=response_format)
+
+
+def _settings_from_assignment(response_format):
+    settings = OpenAIChatPromptExecutionSettings()
+    settings.response_format = response_format
+    return settings
+
+
+def _settings_from_prompt_execution_settings(response_format):
+    return OpenAIChatPromptExecutionSettings.from_prompt_execution_settings(
+        PromptExecutionSettings(extension_data={"response_format": response_format})
+    )
+
+
+def _azure_settings_from_constructor(response_format):
+    return AzureChatPromptExecutionSettings(response_format=response_format)
+
+
+@pytest.mark.parametrize("response_format", [{"type": "text"}, {"type": "json_object"}], ids=["text", "json_object"])
+@pytest.mark.parametrize(
+    "create_settings",
+    [
+        _settings_from_constructor,
+        _settings_from_assignment,
+        _settings_from_prompt_execution_settings,
+        _azure_settings_from_constructor,
+    ],
+    ids=["constructor", "assignment", "from_prompt_execution_settings", "azure_constructor"],
+)
+def test_openai_chat_prompt_execution_settings_with_response_format_type(create_settings, response_format):
+    settings = create_settings(response_format)
+    assert settings.response_format == response_format
+    assert settings.structured_json_response is False
+    assert settings.prepare_settings_dict()["response_format"] == response_format
+
+
+@pytest.mark.parametrize(
+    "response_format",
+    [{"type": "invalid"}, {"json_schema": {}}],
+    ids=["unknown_type", "missing_type"],
+)
+def test_openai_chat_prompt_execution_settings_with_unsupported_response_format_type(response_format):
+    with pytest.raises(ServiceInvalidExecutionSettingsError, match="Encountered unexpected response_format type"):
+        OpenAIChatPromptExecutionSettings(response_format=response_format)
