@@ -384,8 +384,13 @@ class RestApiOperation:
         return bool(parsed.scheme or parsed.netloc)
 
     def build_query_string(self, arguments: dict[str, Any]) -> str:
-        """Build the query string for the operation."""
-        segments = []
+        """Build the query string for the operation.
+
+        Query parameters are serialized with the OpenAPI default for query parameters (style=form,
+        explode=true): an array argument becomes one name=value pair per item, e.g. `id=1&id=2`.
+        Booleans are serialized as `true`/`false`.
+        """
+        segments: list[tuple[str, Any]] = []
         parameters = [p for p in self.parameters if p.location == RestApiParameterLocation.QUERY]
         for parameter in parameters:
             argument = arguments.get(parameter.name)
@@ -396,8 +401,16 @@ class RestApiOperation:
                         f"required parameter of the operation - `{self.id}`."
                     )
                 continue
-            segments.append((parameter.name, argument))
+            values = argument if isinstance(argument, (list, tuple)) else [argument]
+            segments.extend((parameter.name, self._serialize_query_value(value)) for value in values)
         return urlencode(segments)
+
+    @staticmethod
+    def _serialize_query_value(value: Any) -> Any:
+        """Serialize a single query parameter value, leaving anything but booleans to urlencode."""
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        return value
 
     def replace_invalid_symbols(self, parameter_name):
         """Replace invalid symbols in the parameter name with underscores."""

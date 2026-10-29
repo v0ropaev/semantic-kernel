@@ -685,6 +685,48 @@ def test_build_query_string_with_optional_and_required_parameters():
     assert operation.build_query_string(arguments) == expected_query_string
 
 
+@pytest.mark.parametrize(
+    "argument, expected_query_string",
+    [
+        (["dog", "cat"], "tags=dog&tags=cat"),
+        (("dog", "cat"), "tags=dog&tags=cat"),
+        (["a b", "c&d"], "tags=a+b&tags=c%26d"),
+        (["only"], "tags=only"),
+        ([], ""),
+    ],
+)
+def test_build_query_string_with_array_parameter(argument, expected_query_string):
+    # OpenAPI query parameters default to style=form, explode=true, so each array item is sent as its own pair.
+    parameters = [
+        RestApiParameter(
+            name="tags",
+            type="array",
+            location=RestApiParameterLocation.QUERY,
+            schema={"type": "array", "items": {"type": "string"}},
+        )
+    ]
+    operation = RestApiOperation(
+        id="test", method="GET", servers=["https://example.com/"], path="/resource", params=parameters
+    )
+    assert operation.build_query_string({"tags": argument}) == expected_query_string
+
+
+def test_build_query_string_with_boolean_number_and_bytes_parameters():
+    parameters = [
+        RestApiParameter(name="active", type="boolean", location=RestApiParameterLocation.QUERY),
+        RestApiParameter(name="archived", type="boolean", location=RestApiParameterLocation.QUERY),
+        RestApiParameter(name="limit", type="integer", location=RestApiParameterLocation.QUERY),
+        RestApiParameter(name="flags", type="array", location=RestApiParameterLocation.QUERY),
+        RestApiParameter(name="raw", type="string", location=RestApiParameterLocation.QUERY),
+    ]
+    operation = RestApiOperation(
+        id="test", method="GET", servers=["https://example.com/"], path="/resource", params=parameters
+    )
+    arguments = {"active": True, "archived": False, "limit": 10, "flags": [True, False], "raw": b"a b"}
+    expected_query_string = "active=true&archived=false&limit=10&flags=true&flags=false&raw=a+b"
+    assert operation.build_query_string(arguments) == expected_query_string
+
+
 def test_create_payload_artificial_parameter_with_text_plain():
     properties = [
         RestApiPayloadProperty(
